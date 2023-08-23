@@ -7,12 +7,13 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 
+// 这个叫“读书”的网站保存了《睡前消息》文字稿
 const BASEURL = "https://doosho.com/";
 const REQUEST_INTERVAL = 200; // ms
 
 
 async function fetchUrlList() {
-    const url = `${BASEURL}_next/data/ioW0RaaxVs9fpl-uF3Aav/zh-CN/cn/44.json`;
+    const url = `${BASEURL}_next/data/beEo2kcRSTnsTwzR--a8T/zh-CN/cn/44.json`;
     const response = await fetch(url, { method: "GET", mode: "cors" });
     if (!response.ok) {
         throw new Error('请求失败');
@@ -112,9 +113,12 @@ function getCurrentDateTimeString() {
     return currentDateTimeString;
 }
 
+// 程序从这里开始执行
 async function main() {
+
     // 要写入的文件
     const filePath = 'result.txt';
+
     // 检查文件是否存在
     const isFileExist = await new Promise((resolve, reject) => {
         fs.access(filePath, fs.constants.F_OK, err => {
@@ -127,15 +131,17 @@ async function main() {
             }
         });
     })
+
+    // 如果文件存在，那就删除这个文件
     if (isFileExist) {
-        // 如果文件存在，那就删除这个文件
         await new Promise((resolve, reject) => {
             fs.unlink(filePath, (err) => {
                 if (err) reject(err);
-                else resolve()
+                else resolve();
             })
         })
     }
+
     // 写入日期时间字符串到文件头部
     await new Promise((resolve, reject) => {
         fs.appendFile(filePath, `================${getCurrentDateTimeString()}================`, (err) => {
@@ -143,19 +149,25 @@ async function main() {
             else resolve();
         })
     })
-    // 获取目录页列表
+
+    // 访问目录页列表
     const urlList = await fetchUrlList();
-    // 获取详情页HTML
+
+    // 访问详情页HTML
     const detailHTML = fetchDetailHTML(urlList);
+
     // 使用迭代器逐个处理结果
     let iterator = await detailHTML.next()
+
     while (!iterator.done) {
         const html = iterator.value;
         // 解析HTML
         const text = await parseHTML(html);
+        // 去除连续超过2个的换行符
+        const cleanedText = text.replace(/\n{3,}/g, '\n\n');
         // 追加写入文件
         await new Promise((resolve, reject) => {
-            fs.appendFile(filePath, `\n\n=====================================\n\n` + text, (err) => {
+            fs.appendFile(filePath, `\n\n=====================================\n\n` + cleanedText, (err) => {
                 if (err) reject(err);
                 else {
                     console.log("write text content to file -> ", text);
@@ -163,14 +175,17 @@ async function main() {
                 };
             })
         })
+        // 等待一段时间
         await delay(REQUEST_INTERVAL);
-        // 迭代下一个
+
+        // 继续访问下一个页面
         iterator = await detailHTML.next();
     }
 }
 
-// 程序从这里开始运行
-main().then(null).catch(err => {
-    console.log("main.catch(err) -> ", err);
-    throw err;
-});
+main()
+    .then()
+    .catch(err => {
+        console.log("main.catch(err) -> ", err);
+    })
+    .finally();
